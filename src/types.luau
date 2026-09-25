@@ -204,6 +204,7 @@ export type TextButton = GuiButton & {
 export type ValueState = {
 	Value: any,
 	Connect: (...any) -> any,
+	Disconnect: ((...any) -> ())?,
 }
 
 export type Theme = { [any]: any }
