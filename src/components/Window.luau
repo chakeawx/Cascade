@@ -435,8 +435,9 @@ return function(self, properties: types.WindowProperties): types.Window
 
 			structures.Body.BackgroundTransparency = value and self.Theme.Controls.Sidebar[2].Value or 0
 
-			if value and not properties.Minimized then
+			if value then
 				structures.BlurModel = effects.UIBlur(structures.Body)
+				structures.BlurModel.SetVisibility(not minimized and not minimizeTween)
 			end
 		end,
 		CanExit = function(value: boolean)
