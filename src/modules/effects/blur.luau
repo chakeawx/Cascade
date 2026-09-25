@@ -31,6 +31,7 @@ end
 local function createBlur(distance: number?)
 	local blurEffects = Instance.new("Folder", workspace.CurrentCamera)
 	local connections = {}
+	local disposed = false
 
 	local triPositions = {
 		topLeft = Vector2.new(),
@@ -72,7 +73,10 @@ local function createBlur(distance: number?)
 
 	local function render()
 		local camera = workspace.CurrentCamera
-		local cameraTransform = if camera then camera.CFrame else CFrame.identity
+		if disposed or not camera then
+			return
+		end
+		local cameraTransform = camera.CFrame
 
 		local topLeft = triPositions.topLeft
 		local topRight = triPositions.topRight
@@ -98,6 +102,9 @@ local function createBlur(distance: number?)
 	end
 
 	local function onChange(rbx)
+		if disposed or not workspace.CurrentCamera then
+			return
+		end
 		local offset = getOffset()
 		local size = rbx.AbsoluteSize - Vector2.new(offset, offset)
 		local position = rbx.AbsolutePosition + Vector2.new(offset / 2, offset / 2)
@@ -122,42 +129,47 @@ local function createBlur(distance: number?)
 
 	model.Parent = blurEffects
 
-	model.Destroying:Connect(function()
-		for _, item in connections do
-			pcall(function()
-				effect:Destroy()
-				blurEffects:Destroy()
-				item:Disconnect()
-			end)
+	model.Destroying:Once(function()
+		disposed = true
+		for _, connection in ipairs(connections) do
+			connection:Disconnect()
 		end
+		table.clear(connections)
+		effect:Destroy()
+		-- The model is still locked inside Destroying; remove its folder afterward.
+		task.defer(function()
+			blurEffects:Destroy()
+		end)
 	end)
 
 	renderOnChange()
 
-	return onChange, model
+	return onChange, model, connections
 end
 
 return function(frame: GuiObject, distance: number?)
 	local blur = {}
-	local onChange, model = createBlur(distance)
+	local onChange, model, connections = createBlur(distance)
 
 	blur.SetVisibility = function(Value)
-		model.Transparency = Value and 0.98 or 1
+		if model.Parent then
+			model.Transparency = Value and 0.98 or 1
+		end
 	end
 
-	frame:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
+	connections[#connections + 1] = frame:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
 		onChange(frame)
 	end)
 
-	frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+	connections[#connections + 1] = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
 		onChange(frame)
 	end)
 
-	frame:GetPropertyChangedSignal("Visible"):Connect(function()
+	connections[#connections + 1] = frame:GetPropertyChangedSignal("Visible"):Connect(function()
 		blur.SetVisibility(frame.Visible)
 	end)
 
-	frame.Destroying:Connect(function()
+	connections[#connections + 1] = frame.Destroying:Connect(function()
 		model:Destroy()
 	end)
 
