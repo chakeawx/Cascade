@@ -388,23 +388,12 @@ return function(self, properties: types.StepperProperties): types.Stepper
 		end
 	end)
 
-	structures.Field.Field.FocusLost:Connect(function(fromEnter)
-		if fromEnter then
-			assert(properties.Minimum)
-			assert(properties.Maximum)
-
-			local text = structures.Field.Field.Text
-			local number = tonumber(text)
-
-			if number and properties.Fielded then
-				properties.Value = math.clamp(number, properties.Minimum, properties.Maximum)
-
-				if properties.Value then
-					bindings.Value(properties.Value)
-				end
-			end
+	structures.Field.Field.FocusLost:Connect(function()
+		local number = tonumber(structures.Field.Field.Text)
+		if number and properties.Fielded then
+			object.Value = math.clamp(number, properties.Minimum, properties.Maximum)
 		else
-			structures.Field.Field.Text = tostring(properties.Value)
+			structures.Field.Field.Text = stepFormat(properties.Value, properties.Step)
 		end
 	end)
 
