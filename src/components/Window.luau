@@ -32,8 +32,9 @@ return function(self, properties: types.WindowProperties): types.Window
 	}).__instance
 	local originalSize
 	local originalPosition
-	local originalPosition2
-	local minimizing
+	local minimizeRestorePosition
+	local minimized = false
+	local minimizeTween: Tween? = nil
 	local dragging
 	local resizeClient
 	local structures = {}
@@ -315,6 +316,7 @@ return function(self, properties: types.WindowProperties): types.Window
 
 	originalSize = structures.Body.Size
 	originalPosition = structures.Body.Position
+	minimizeRestorePosition = structures.Body.Position
 
 	local bindings = {
 		Title = function(value: string)
@@ -345,42 +347,49 @@ return function(self, properties: types.WindowProperties): types.Window
 		end,
 		Minimized = function(value: boolean?, tween: boolean?)
 			local useTween = tween ~= false
+			value = value == true
+			if value == minimized then
+				return
+			end
 
-			if value and not minimizing then
-				originalPosition2 = structures.Body.Position
+			if value and not minimizeTween then
+				minimizeRestorePosition = structures.Body.Position
+			end
+			minimized = value
 
-				if structures["BlurModel"] then
-					structures["BlurModel"].SetVisibility(false)
-				end
+			if minimizeTween then
+				local previousTween = minimizeTween
+				minimizeTween = nil
+				previousTween:Cancel()
+			end
+			if structures["BlurModel"] then
+				structures["BlurModel"].SetVisibility(false)
 			end
 
 			local tweenInfo = TweenInfo.new(0.25, Enum.EasingStyle.Exponential, Enum.EasingDirection.Out)
 			local bodyTarget = {
-				Position = value and UDim2.new(0.5, 0, 0.5, structures.Body.AbsoluteSize.Y * 2) or originalPosition2,
+				Position = value and UDim2.new(0.5, 0, 0.5, structures.Body.AbsoluteSize.Y * 2) or minimizeRestorePosition,
 			}
 			-- Keep text layout stable while moving the window offscreen.
-			local scaleTarget = { Scale = 1 }
+			structures.Scale.Scale = 1
 
 			if useTween then
-				minimizing = true
-				tweenService:Create(structures.Body.__instance, tweenInfo, bodyTarget):Play()
-
-				local scaleTween: Tween = tweenService:Create(structures.Scale.__instance, tweenInfo, scaleTarget)
-
-				scaleTween:Play()
-				scaleTween.Completed:Once(function()
-					minimizing = false
-
-					if structures["BlurModel"] and not properties.Minimized then
-						structures["BlurModel"].SetVisibility(true)
+				local transition = tweenService:Create(structures.Body.__instance, tweenInfo, bodyTarget)
+				minimizeTween = transition
+				transition.Completed:Once(function(playbackState)
+					if minimizeTween ~= transition then
+						return
+					end
+					minimizeTween = nil
+					if playbackState == Enum.PlaybackState.Completed and structures["BlurModel"] then
+						structures["BlurModel"].SetVisibility(not minimized)
 					end
 				end)
+				transition:Play()
 			else
 				structures.Body.Position = bodyTarget.Position
-				structures.Scale.Scale = scaleTarget.Scale
-
-				if value and structures["BlurModel"] then
-					structures["BlurModel"].SetVisibility(false)
+				if structures["BlurModel"] then
+					structures["BlurModel"].SetVisibility(not minimized)
 				end
 			end
 		end,
@@ -463,6 +472,14 @@ return function(self, properties: types.WindowProperties): types.Window
 	object.Tabs = {}
 	object.addToHistory = addToHistory(object)
 	object.__container = structures.Content
+
+	structures.Body.Destroying:Once(function()
+		if minimizeTween then
+			local transition = minimizeTween
+			minimizeTween = nil
+			transition:Cancel()
+		end
+	end)
 
 	do -- Resize handler
 		resizeClient = resizeHandler(structures.Body.__instance, Vector2.new(350, 250))
