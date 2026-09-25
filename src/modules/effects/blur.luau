@@ -28,9 +28,10 @@ local function getOffset()
 end
 
 --// Initialize
-local function createBlur(distance: number?)
+local function createBlur(frame: GuiObject, distance: number?)
 	local blurEffects = Instance.new("Folder", workspace.CurrentCamera)
 	local connections = {}
+	local cameraConnections = {}
 	local disposed = false
 
 	local triPositions = {
@@ -101,30 +102,38 @@ local function createBlur(distance: number?)
 		end
 	end
 
-	local function onChange(rbx)
+	local function onChange()
 		if disposed or not workspace.CurrentCamera then
 			return
 		end
 		local offset = getOffset()
-		local size = rbx.AbsoluteSize - Vector2.new(offset, offset)
-		local position = rbx.AbsolutePosition + Vector2.new(offset / 2, offset / 2)
+		local size = frame.AbsoluteSize - Vector2.new(offset, offset)
+		local position = frame.AbsolutePosition + Vector2.new(offset / 2, offset / 2)
 
 		updatePositions(size, position)
 		task.spawn(render)
 	end
 
-	local function renderOnChange()
+	local function bindCamera()
+		if disposed then
+			return
+		end
+		for _, connection in ipairs(cameraConnections) do
+			connection:Disconnect()
+		end
+		table.clear(cameraConnections)
 		local camera = workspace.CurrentCamera
+		blurEffects.Parent = camera
 
 		if not camera then
 			return
 		end
 
-		connections[#connections + 1] = camera:GetPropertyChangedSignal("CFrame"):Connect(render)
-		connections[#connections + 1] = camera:GetPropertyChangedSignal("ViewportSize"):Connect(render)
-		connections[#connections + 1] = camera:GetPropertyChangedSignal("FieldOfView"):Connect(render)
+		cameraConnections[#cameraConnections + 1] = camera:GetPropertyChangedSignal("CFrame"):Connect(render)
+		cameraConnections[#cameraConnections + 1] = camera:GetPropertyChangedSignal("ViewportSize"):Connect(onChange)
+		cameraConnections[#cameraConnections + 1] = camera:GetPropertyChangedSignal("FieldOfView"):Connect(render)
 
-		task.spawn(render)
+		onChange()
 	end
 
 	model.Parent = blurEffects
@@ -134,7 +143,11 @@ local function createBlur(distance: number?)
 		for _, connection in ipairs(connections) do
 			connection:Disconnect()
 		end
+		for _, connection in ipairs(cameraConnections) do
+			connection:Disconnect()
+		end
 		table.clear(connections)
+		table.clear(cameraConnections)
 		effect:Destroy()
 		-- The model is still locked inside Destroying; remove its folder afterward.
 		task.defer(function()
@@ -142,14 +155,15 @@ local function createBlur(distance: number?)
 		end)
 	end)
 
-	renderOnChange()
+	connections[#connections + 1] = workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(bindCamera)
+	bindCamera()
 
 	return onChange, model, connections
 end
 
 return function(frame: GuiObject, distance: number?)
 	local blur = {}
-	local onChange, model, connections = createBlur(distance)
+	local onChange, model, connections = createBlur(frame, distance)
 
 	blur.SetVisibility = function(Value)
 		if model.Parent then
@@ -157,13 +171,9 @@ return function(frame: GuiObject, distance: number?)
 		end
 	end
 
-	connections[#connections + 1] = frame:GetPropertyChangedSignal("AbsolutePosition"):Connect(function()
-		onChange(frame)
-	end)
+	connections[#connections + 1] = frame:GetPropertyChangedSignal("AbsolutePosition"):Connect(onChange)
 
-	connections[#connections + 1] = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
-		onChange(frame)
-	end)
+	connections[#connections + 1] = frame:GetPropertyChangedSignal("AbsoluteSize"):Connect(onChange)
 
 	connections[#connections + 1] = frame:GetPropertyChangedSignal("Visible"):Connect(function()
 		blur.SetVisibility(frame.Visible)
@@ -174,8 +184,6 @@ return function(frame: GuiObject, distance: number?)
 	end)
 
 	blur.Model = model
-
-	onChange(frame)
 
 	return blur
 end
