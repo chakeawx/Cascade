@@ -539,77 +539,75 @@ return function(self, properties: types.WindowProperties): types.Window
 
 	do -- Page searching
 		local field = structures.Titlebar.SearchField.Field
-		local pageCaches = {}
+		local activePage = nil
+		local cache = {}
+		local pageDestroying = nil
 
-		local function toCache(page, descendants)
-			local cache = {}
-
-			for _, child in ipairs(descendants) do
-				if child:IsA("GuiObject") then
-					cache[child] = child.Visible
+		local function finishSession(restore)
+			if pageDestroying then
+				pageDestroying:Disconnect()
+				pageDestroying = nil
+			end
+			if restore then
+				for child, visible in pairs(cache) do
+					if child.Parent then
+						child.Visible = visible
+					end
 				end
 			end
-
-			pageCaches[page] = cache
+			activePage = nil
+			table.clear(cache)
 		end
 
-		local function fromCache(page, descendants)
-			local cache = pageCaches[page]
-
-			if not cache then
-				return
-			end
-
-			for _, child in ipairs(descendants) do
-				if child:IsA("GuiObject") then
-					child.Visible = cache[child] ~= false
+		local function wasVisible(child, page)
+			while child and child ~= page do
+				if cache[child] == false then
+					return false
 				end
+				child = child.Parent
 			end
+			return true
 		end
 
-		field:GetPropertyChangedSignal("Text"):Connect(function()
+		local function search()
 			local matches = {}
-			local items = {}
 			local page = structures.Content:FindFirstChildOfClass("ScrollingFrame")
+			local query = field.Text:lower()
 
-			if not page then
+			if activePage ~= page or query == "" then
+				finishSession(true)
+			end
+
+			if not page or query == "" then
 				return
 			end
 
 			local descendants = page:GetDescendants()
 
-			if not pageCaches[page] then
-				toCache(page, descendants)
+			if not activePage then
+				activePage = page
+				pageDestroying = page.Destroying:Once(function()
+					finishSession(false)
+				end)
 			end
 
-			local query = field.Text:lower()
-
-			if query == "" then
-				fromCache(page, descendants)
-				return
+			for _, child in ipairs(descendants) do
+				if child:IsA("GuiObject") and cache[child] == nil then
+					cache[child] = child.Visible
+				end
 			end
 
 			for _, child in ipairs(descendants) do
 				if child:IsA("GuiObject") then
 					local searchIndex = child:GetAttribute("SearchIndex")
 
-					if typeof(searchIndex) == "string" and searchIndex:lower():find(query, 1, true) then
+					if
+						typeof(searchIndex) == "string"
+						and searchIndex:lower():find(query, 1, true)
+						and wasVisible(child, page)
+					then
 						table.insert(matches, child)
 					end
-				end
-			end
-
-			for _, match in ipairs(matches) do
-				items[match] = true
-
-				local parent = match.Parent
-
-				while parent and parent ~= page do
-					if parent:IsA("GuiObject") then
-						items[parent] = true
-					end
-
-					parent = parent.Parent
 				end
 			end
 
@@ -632,17 +630,21 @@ return function(self, properties: types.WindowProperties): types.Window
 					parent = parent.Parent
 				end
 
-				local cache = pageCaches[page]
-
 				for _, descendant in ipairs(match:GetDescendants()) do
 					if descendant:IsA("GuiObject") then
-						local wasVisible = cache and cache[descendant]
-						if wasVisible then
+						if wasVisible(descendant, page) then
 							descendant.Visible = true
 						end
 					end
 				end
 			end
+		end
+
+		field:GetPropertyChangedSignal("Text"):Connect(search)
+		structures.Content.ChildAdded:Connect(search)
+		structures.Content.ChildRemoved:Connect(search)
+		structures.Body.Destroying:Once(function()
+			finishSession(true)
 		end)
 	end
 
