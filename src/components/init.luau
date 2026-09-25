@@ -85,7 +85,14 @@ local function wrap(name, make)
 			)
 
 		if final ~= nil then
-			table.insert(__SH.COMPINDEXES, final)
+			local indexes = __SH.COMPINDEXES
+			table.insert(indexes, final)
+			final.Destroying:Once(function()
+				local index = table.find(indexes, final)
+				if index then
+					table.remove(indexes, index)
+				end
+			end)
 
 			if recorder then
 				recorder:_Commit(recordNode, result, final)
