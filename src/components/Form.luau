@@ -68,12 +68,12 @@ return function(self, properties: types.Frame): types.Form
 	object.Structures = structures
 
 	local function updateDivs()
-		for i, entry in ipairs(entries) do
-			local currentVisible = entry.section.Visible
-			local nextEntry = entries[i + 1]
-			local nextVisible = nextEntry and nextEntry.section.Visible
-
-			entry.divider.Visible = currentVisible and nextVisible == true
+		local hasVisibleRowAfter = false
+		for i = #entries, 1, -1 do
+			local entry = entries[i]
+			local visible = entry.section.Visible
+			entry.divider.Visible = visible and hasVisibleRowAfter
+			hasVisibleRowAfter = visible or hasVisibleRowAfter
 		end
 	end
 
