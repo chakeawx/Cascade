@@ -716,7 +716,7 @@ return function(self, properties: types.WindowProperties): types.Window
 			end
 		end)
 
-		userInputService.InputChanged:Connect(function(input)
+		local moveConnection = userInputService.InputChanged:Connect(function(input)
 			if
 				input.UserInputType == Enum.UserInputType.MouseMovement
 				or input.UserInputType == Enum.UserInputType.Touch
@@ -733,6 +733,17 @@ return function(self, properties: types.WindowProperties): types.Window
 					structures.Body.Position = newPosition
 				end
 			end
+		end)
+
+		structures.Body.Destroying:Connect(function()
+			dragging = false
+			moveConnection:Disconnect()
+			if connection then
+				connection:Disconnect()
+				connection = nil
+			end
+			inputPos = nil
+			startPos = nil
 		end)
 	end
 
