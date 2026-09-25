@@ -15,56 +15,6 @@ return function(self, properties: types.SectionProperties): types.Section
 	local parent = self.Type == "Window" and self.Structures.SidebarList or self.__instance or self
 	local structures = {}
 
-	--// Functions
-	local function watchAutosize(structure: Frame, connections: { RBXScriptConnection }, update: (...any) -> (), ...)
-		local args = table.pack(...)
-
-		for _, child in ipairs(structure:GetChildren()) do
-			if child:IsA("GuiObject") then
-				table.insert(
-					connections,
-					child:GetPropertyChangedSignal("AbsoluteSize"):Connect(function(...)
-						update(table.unpack(args, 1, args.n))
-					end)
-				)
-				table.insert(
-					connections,
-					child:GetPropertyChangedSignal("Visible"):Connect(function(...)
-						update(table.unpack(args, 1, args.n))
-					end)
-				)
-			end
-		end
-
-		table.insert(
-			connections,
-			structure.ChildAdded:Connect(function(child)
-				if child:IsA("GuiObject") then
-					table.insert(
-						connections,
-						child:GetPropertyChangedSignal("AbsoluteSize"):Connect(function(...)
-							update(table.unpack(args, 1, args.n))
-						end)
-					)
-					table.insert(
-						connections,
-						child:GetPropertyChangedSignal("Visible"):Connect(function(...)
-							update(table.unpack(args, 1, args.n))
-						end)
-					)
-					update(table.unpack(args, 1, args.n))
-				end
-			end)
-		)
-
-		table.insert(
-			connections,
-			structure.ChildRemoved:Connect(function(...)
-				update(table.unpack(args, 1, args.n))
-			end)
-		)
-	end
-
 	--// UI
 	properties = properties or {}
 
@@ -174,7 +124,7 @@ return function(self, properties: types.SectionProperties): types.Section
 	structures.Disclosure = structures.SectionHeader:FindFirstChild("Disclosure") :: TextButton
 	structures.DisclosureImage = structures.Disclosure:FindFirstChild("DisclosureImage") :: ImageLabel
 
-	local connections = {}
+	local layoutConnection: RBXScriptConnection? = nil
 	local bindings = {
 		Title = function(name: string)
 			structures.Title.Text = name
@@ -191,11 +141,10 @@ return function(self, properties: types.SectionProperties): types.Section
 
 			sidebarGroup.AutomaticSize = Enum.AutomaticSize.None
 
-			for _, connection: RBXScriptConnection in ipairs(connections) do
-				connection:Disconnect()
+			if layoutConnection then
+				layoutConnection:Disconnect()
+				layoutConnection = nil
 			end
-
-			table.clear(connections)
 
 			local updateSize = function(useTween: boolean)
 				local targetHeight = state and structures.Layout.AbsoluteContentSize.Y or 23
@@ -210,7 +159,9 @@ return function(self, properties: types.SectionProperties): types.Section
 			end
 
 			if state then
-				watchAutosize(sidebarGroup, connections, updateSize, false)
+				layoutConnection = structures.Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+					updateSize(false)
+				end)
 			end
 
 			updateSize(tween)
