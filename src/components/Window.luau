@@ -358,7 +358,8 @@ return function(self, properties: types.WindowProperties): types.Window
 			local bodyTarget = {
 				Position = value and UDim2.new(0.5, 0, 0.5, structures.Body.AbsoluteSize.Y * 2) or originalPosition2,
 			}
-			local scaleTarget = { Scale = value and 0 or 1 }
+			-- Keep text layout stable while moving the window offscreen.
+			local scaleTarget = { Scale = 1 }
 
 			if useTween then
 				minimizing = true
