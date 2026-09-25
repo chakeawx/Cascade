@@ -47,6 +47,7 @@ return function(self)
 			BorderColor3 = Color3.fromRGB(0, 0, 0),
 			BorderSizePixel = 0,
 			CursorPosition = -1,
+			ClearTextOnFocus = false,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			FontFace = Font.new("rbxassetid://12187365364"),
 			PlaceholderText = "",
