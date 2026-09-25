@@ -576,7 +576,7 @@ return function(self, properties: types.WindowProperties): types.Window
 				if child:IsA("GuiObject") then
 					local searchIndex = child:GetAttribute("SearchIndex")
 
-					if typeof(searchIndex) == "string" and searchIndex:lower():find(query) then
+					if typeof(searchIndex) == "string" and searchIndex:lower():find(query, 1, true) then
 						table.insert(matches, child)
 					end
 				end
