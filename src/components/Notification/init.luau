@@ -18,6 +18,7 @@ return function(self, properties: types.NotificationProperties): types.Notificat
 	end
 
 	local closed = false
+	local expiration = nil
 	local MAX_NOTIFICATIONS = 4
 	local state = { Age = 0 }
 
@@ -95,9 +96,8 @@ return function(self, properties: types.NotificationProperties): types.Notificat
 		end
 
 		fadeTween:Play()
-		fadeTween.Completed:Connect(function()
+		fadeTween.Completed:Once(function()
 			if body.Parent then
-				notificationList.RemoveNotification(object)
 				body:Destroy()
 			end
 		end)
@@ -184,6 +184,15 @@ return function(self, properties: types.NotificationProperties): types.Notificat
 
 	object:UpdateState(0, true)
 
+	body.Destroying:Once(function()
+		closed = true
+		if expiration then
+			task.cancel(expiration)
+			expiration = nil
+		end
+		notificationList.RemoveNotification(object)
+	end)
+
 	notificationList.AddNotification(object, body)
 
 	if body:FindFirstChild("UIScale") then
@@ -202,7 +211,8 @@ return function(self, properties: types.NotificationProperties): types.Notificat
 		:Play()
 
 	if properties.Duration > 0 then
-		task.delay(properties.Duration, function()
+		expiration = task.delay(properties.Duration, function()
+			expiration = nil
 			closeNotification()
 		end)
 	end
