@@ -39,7 +39,7 @@ return function(self, properties: types.KeybindFieldProperties): types.KeybindFi
 		end,
 	}, structures.Body)
 
-	userInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+	local inputBegan = userInputService.InputBegan:Connect(function(input, gameProcessedEvent)
 		if input.UserInputType ~= Enum.UserInputType.Keyboard then
 			return
 		end
@@ -49,7 +49,7 @@ return function(self, properties: types.KeybindFieldProperties): types.KeybindFi
 		end
 	end)
 
-	userInputService.InputEnded:Connect(function(input, gameProcessedEvent)
+	local inputEnded = userInputService.InputEnded:Connect(function(input, gameProcessedEvent)
 		if input.UserInputType ~= Enum.UserInputType.Keyboard then
 			return
 		end
@@ -60,6 +60,11 @@ return function(self, properties: types.KeybindFieldProperties): types.KeybindFi
 		elseif input.KeyCode == properties.Value and properties.BindPressed then
 			properties.BindPressed(object, input.KeyCode, true, gameProcessedEvent)
 		end
+	end)
+
+	structures.Body.Destroying:Once(function()
+		inputBegan:Disconnect()
+		inputEnded:Disconnect()
 	end)
 
 	object.Type = "KeybindField"
