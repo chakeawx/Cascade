@@ -242,36 +242,42 @@ return function(self, properties: types.RadioButtonGroupProperties): types.Radio
 
 	--// Initialize
 	local object
+	local function updateSelection(value: number)
+		for index, radioButton in ipairs(structures.RadioButtons) do
+			local currentIndex = index == value
+
+			if radioButton then
+				local button = radioButton:FindFirstChild("Button")
+
+				button.ImageColor3 = currentIndex and self.Theme.Controls.Selection[1].Value
+					or theme.Background[1].Value
+				button.ImageTransparency = currentIndex and self.Theme.Controls.Selection[2].Value
+					or theme.Background[2].Value
+
+				button:FindFirstChild("Dot").ImageTransparency = currentIndex and theme.Dot[2].Value or 1
+
+				button:FindFirstChild("Stroke").ImageTransparency = currentIndex and 1 or theme.Stroke[2].Value
+				button:FindFirstChild("InnerShadow").ImageTransparency = currentIndex and 1
+					or theme.InnerShadow[2].Value
+				button:FindFirstChild("DropShadow").ImageTransparency = currentIndex and 0.76 or 1
+			end
+		end
+	end
+
 	local bindings = {
 		Options = function(value: { [number]: string })
-			for index, option in ipairs(value) do
-				if structures.RadioButtons[index] then
-					structures.RadioButtons[index]:Destroy()
-				end
+			for _, button in ipairs(structures.RadioButtons) do
+				button:Destroy()
+			end
+			table.clear(structures.RadioButtons)
 
+			for index, option in ipairs(value) do
 				radioButton(object, option, index)
 			end
+			updateSelection(properties.Value)
 		end,
 		Value = function(value: number)
-			for index, radioButton in ipairs(structures.RadioButtons) do
-				local currentIndex = index == value
-
-				if radioButton then
-					local button = radioButton:FindFirstChild("Button")
-
-					button.ImageColor3 = currentIndex and self.Theme.Controls.Selection[1].Value
-						or theme.Background[1].Value
-					button.ImageTransparency = currentIndex and self.Theme.Controls.Selection[2].Value
-						or theme.Background[2].Value
-
-					button:FindFirstChild("Dot").ImageTransparency = currentIndex and theme.Dot[2].Value or 1
-
-					button:FindFirstChild("Stroke").ImageTransparency = currentIndex and 1 or theme.Stroke[2].Value
-					button:FindFirstChild("InnerShadow").ImageTransparency = currentIndex and 1
-						or theme.InnerShadow[2].Value
-					button:FindFirstChild("DropShadow").ImageTransparency = currentIndex and 0.76 or 1
-				end
-			end
+			updateSelection(value)
 
 			if properties.ValueChanged then
 				properties.Value = value
